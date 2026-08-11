@@ -22,7 +22,7 @@ namespace Mango.Web.Service
             {
                 HttpClient client = _httpClientFactory.CreateClient("MangoAPI");
                 HttpRequestMessage message = new();
-                message.Headers.Add("Accep", "application/json");
+                message.Headers.Add("Accept", "application/json");
 
                 message.RequestUri = new Uri(requestDto.Url);
                 if (requestDto.Data != null)
@@ -44,7 +44,7 @@ namespace Mango.Web.Service
                         message.Method = HttpMethod.Put;
                         break;
                     default:
-                        message.Method = HttpMethod.Post;
+                        message.Method = HttpMethod.Get;
                         break;
                 }
 
