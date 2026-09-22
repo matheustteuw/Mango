@@ -11,6 +11,7 @@ namespace Mango.Services.AuthAPI
             var mappingConfig = new MapperConfiguration(config =>
             {
                 config.CreateMap<ApplicationUser, UserDto>();
+                config.CreateMap<RegisterRequestDto, ApplicationUser>();
             });
 
             return mappingConfig;
