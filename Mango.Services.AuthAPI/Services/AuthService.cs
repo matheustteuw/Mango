@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Azure.Core;
 using Mango.Services.AuthAPI.Data;
 using Mango.Services.AuthAPI.Models;
 using Mango.Services.AuthAPI.Models.Dto;
@@ -7,27 +8,35 @@ using Microsoft.AspNetCore.Identity;
 
 namespace Mango.Services.AuthAPI.Services
 {
-    public class AuthService : IAuthService
+    public class AuthService(
+        AppDbContext _db,
+        UserManager<ApplicationUser> _userManager,
+        IMapper _mapper,
+        IJwtTokenGenerator _tokenGenerator,
+        RoleManager<IdentityRole> _roleManager) : IAuthService
     {
-        private readonly AppDbContext _db;
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly RoleManager<IdentityRole> _roleManager;
-        private readonly IMapper _mapper;
-        public AuthService(
-            AppDbContext db,
-            UserManager<ApplicationUser> userManager,
-            RoleManager<IdentityRole> roleManager,
-            IMapper mapper)
+        public async Task<bool> AssignRole(string UserId, string roleName)
         {
-            _db = db; 
-            _userManager = userManager;
-            _roleManager = roleManager;
-            _mapper = mapper;
+            var user = _db.ApplicationUsers.FirstOrDefault(u => u.Id == UserId);
+            if (user != null) 
+            { 
+                if (!_roleManager.RoleExistsAsync(roleName).GetAwaiter().GetResult())
+                {
+                    //create role if it does not exist
+                    _roleManager.CreateAsync(new IdentityRole(roleName)).GetAwaiter().GetResult();
+                }
+
+                await _userManager.AddToRoleAsync(user, roleName);
+
+                return true;
+            }
+
+            return false;
         }
 
         public async Task<LoginResponseDto> Login(LoginRequestDto request)
         {
-            var user = _db.ApplicationUsers.FirstOrDefault(u => u.UserName!.ToLower() == request.UserName.ToLower());
+            var user = _db.ApplicationUsers.FirstOrDefault(u => u.Email!.ToLower() == request.Email.ToLower());
 
             bool isValid = await _userManager.CheckPasswordAsync(user!, request.Password);
 
@@ -40,18 +49,20 @@ namespace Mango.Services.AuthAPI.Services
                 };
             }
 
+            var token = _tokenGenerator.GenerateToken(user!);
+
             UserDto userDto = new()
             {
                 Email = user.Email!,
-                Id = user.Id,
-                Name = user.Name,
-                PhoneNumber = user.PhoneNumber!
+                //Id = user.Id,
+                Name = user.UserName!,
+                //PhoneNumber = user.PhoneNumber!
             };
 
             LoginResponseDto responseDto = new LoginResponseDto()
             {
                 User = userDto,
-                Token = ""
+                Token = token
             };
 
             return responseDto;
