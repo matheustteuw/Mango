@@ -15,23 +15,22 @@ namespace Mango.Services.AuthAPI.Services
         IJwtTokenGenerator _tokenGenerator,
         RoleManager<IdentityRole> _roleManager) : IAuthService
     {
-        public async Task<bool> AssignRole(string UserId, string roleName)
+        public async Task<string> Register(RegisterRequestDto request)
         {
-            var user = _db.ApplicationUsers.FirstOrDefault(u => u.Id == UserId);
-            if (user != null) 
-            { 
-                if (!_roleManager.RoleExistsAsync(roleName).GetAwaiter().GetResult())
+            ApplicationUser user = _mapper.Map<ApplicationUser>(request);
+            user.UserName = request.Email;
+
+            try
+            {
+                var result = await _userManager.CreateAsync(user, request.Password);
+                if (result.Succeeded)
                 {
-                    //create role if it does not exist
-                    _roleManager.CreateAsync(new IdentityRole(roleName)).GetAwaiter().GetResult();
+                    return "";
                 }
-
-                await _userManager.AddToRoleAsync(user, roleName);
-
-                return true;
             }
+            catch (Exception) { }
 
-            return false;
+            return "Error Encountered";
         }
 
         public async Task<LoginResponseDto> Login(LoginRequestDto request)
@@ -54,9 +53,7 @@ namespace Mango.Services.AuthAPI.Services
             UserDto userDto = new()
             {
                 Email = user.Email!,
-                //Id = user.Id,
-                Name = user.UserName!,
-                //PhoneNumber = user.PhoneNumber!
+                Name = user.Name,
             };
 
             LoginResponseDto responseDto = new LoginResponseDto()
@@ -66,31 +63,25 @@ namespace Mango.Services.AuthAPI.Services
             };
 
             return responseDto;
-        }
+        } 
 
-        public async Task<string> Register(RegisterRequestDto request)
+        public async Task<bool> AssignRole(string UserId, string roleName)
         {
-            ApplicationUser user = _mapper.Map<ApplicationUser>(request);
-
-            try
+            var user = _db.ApplicationUsers.FirstOrDefault(u => u.Id == UserId);
+            if (user != null)
             {
-                var result = await _userManager.CreateAsync(user, request.Password);
-                if (result.Succeeded)
+                if (!_roleManager.RoleExistsAsync(roleName).GetAwaiter().GetResult())
                 {
-                    var userToReturn = _db.ApplicationUsers.First(u => u.UserName == request.Email);
-
-                    UserDto userDto = _mapper.Map<UserDto>(userToReturn);
-
-                    return "";
+                    //create role if it does not exist
+                    _roleManager.CreateAsync(new IdentityRole(roleName)).GetAwaiter().GetResult();
                 }
-                else
-                {
-                    return result.Errors.FirstOrDefault()!.Description;
-                }
+
+                await _userManager.AddToRoleAsync(user, roleName);
+
+                return true;
             }
-            catch (Exception) { }
 
-            return "Error Encountered";
+            return false;
         }
     }
 }
